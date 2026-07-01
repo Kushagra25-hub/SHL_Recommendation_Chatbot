@@ -1,59 +1,49 @@
-from sentence_transformers import SentenceTransformer
-import numpy as np
-import faiss
+from difflib import SequenceMatcher
 
 
 class EmbeddingRetriever:
+    """
+    Lightweight semantic retriever using fuzzy matching.
+    No ML model required.
+    """
+
     def __init__(self, assessments):
         self.assessments = assessments
 
-        print("Loading embedding model...")
-
-        self.model = SentenceTransformer(
-            "all-MiniLM-L6-v2"
-        )
-
-        print("Creating embeddings...")
-
-        documents = [
-            f"{a.name} {a.description} {' '.join(a.keys)}"
-            for a in assessments
-        ]
-
-        embeddings = self.model.encode(
-            documents,
-            convert_to_numpy=True
-        )
-
-        faiss.normalize_L2(embeddings)
-
-        self.index = faiss.IndexFlatIP(
-            embeddings.shape[1]
-        )
-
-        self.index.add(embeddings)
-
     def search(self, query, top_k=10):
 
-        query_embedding = self.model.encode(
-            [query],
-            convert_to_numpy=True
+        query = query.lower()
+
+        scored = []
+
+        for assessment in self.assessments:
+
+            text = (
+                assessment.name
+                + " "
+                + assessment.description
+                + " "
+                + " ".join(assessment.keys)
+            ).lower()
+
+            score = SequenceMatcher(
+                None,
+                query,
+                text,
+            ).ratio()
+
+            scored.append((score, assessment))
+
+        scored.sort(
+            key=lambda x: x[0],
+            reverse=True,
         )
 
-        faiss.normalize_L2(query_embedding)
+        return [
+            assessment
+            for score, assessment in scored[:top_k]
+        ]
 
-        scores, indices = self.index.search(
-            query_embedding,
-            top_k
-        )
-
-        results = []
-
-        for idx in indices[0]:
-            results.append(self.assessments[idx])
-
-        return results
-    
 
 if __name__ == "__main__":
 
@@ -63,15 +53,9 @@ if __name__ == "__main__":
 
     assessments = loader.load_catalog()
 
-    retriever = EmbeddingRetriever(
-        assessments
-    )
+    retriever = EmbeddingRetriever(assessments)
 
-    results = retriever.search(
-        "backend developer"
-    )
-
-    print()
+    results = retriever.search("backend developer")
 
     for assessment in results:
         print(assessment.name)

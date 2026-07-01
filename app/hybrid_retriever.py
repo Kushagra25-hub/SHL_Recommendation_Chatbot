@@ -1,9 +1,9 @@
-from app.catalog_loader import CatalogLoader
 from app.retriever import KeywordRetriever
 from app.embeddings import EmbeddingRetriever
 
 
 class HybridRetriever:
+
     def __init__(self, assessments):
         self.keyword = KeywordRetriever(assessments)
         self.semantic = EmbeddingRetriever(assessments)
@@ -15,14 +15,12 @@ class HybridRetriever:
 
         scores = {}
 
-        # Keyword matches get 2 points
         for assessment in keyword_results:
             scores[assessment.entity_id] = {
                 "assessment": assessment,
-                "score": 2
+                "score": 2,
             }
 
-        # Semantic matches get 1 point
         for assessment in semantic_results:
 
             if assessment.entity_id in scores:
@@ -30,34 +28,16 @@ class HybridRetriever:
             else:
                 scores[assessment.entity_id] = {
                     "assessment": assessment,
-                    "score": 1
+                    "score": 1,
                 }
 
         ranked = sorted(
             scores.values(),
             key=lambda x: x["score"],
-            reverse=True
+            reverse=True,
         )
 
         return [
             item["assessment"]
             for item in ranked[:top_k]
         ]
-
-
-if __name__ == "__main__":
-
-    loader = CatalogLoader()
-
-    assessments = loader.load_catalog()
-
-    retriever = HybridRetriever(assessments)
-
-    results = retriever.search(
-        "java backend developer"
-    )
-
-    print()
-
-    for assessment in results:
-        print(assessment.name)
